@@ -60,18 +60,21 @@ def flatten(spark: SparkSession, dt: str) -> None:
     print(f"subscriptions read: {subs.count()}, items written: {items.count()} to {out}")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--dt", help="run date to process, as YYYY-MM-DD (default: newest run)")
-    args = parser.parse_args()
-    dt = args.dt or newest_run_date()
-
+def flatten_partition(dt: str) -> None:
+    """Start Spark, flatten one run date, and stop Spark on every exit."""
     spark = SparkSession.builder.master("local[*]").appName("flatten_items").getOrCreate()
     try:
         flatten(spark, dt)
     finally:
         # Stop Spark on every exit, including the early exits above, so the process can end.
         spark.stop()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--dt", help="run date to process, as YYYY-MM-DD (default: newest run)")
+    args = parser.parse_args()
+    flatten_partition(args.dt or newest_run_date())
 
 
 if __name__ == "__main__":

@@ -11,3 +11,5 @@ dbt_packages/
 design_doc/~$*
 # macOS folder metadata
 .DS_Store
+# Dagster temporary home created by dagster definitions validate
+.tmp_dagster_home_*/
