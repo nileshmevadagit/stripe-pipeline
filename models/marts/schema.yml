@@ -1,0 +1,36 @@
+version: 2
+models:
+- name: fct_subscription_items
+  columns:
+  - name: item_id
+    tests:
+    - unique
+    - not_null
+  - name: monthly_amount_minor
+    tests:
+    - not_null:
+        arguments: {}
+        config:
+          where: billing_interval in ('month', 'year')
+- name: mart_mrr
+  columns:
+  - name: currency
+    tests:
+    - unique
+    - not_null
+- name: mart_active_subscriptions_by_plan
+  columns:
+  - name: price_id
+    tests:
+    - not_null
+- name: mart_revenue_by_month
+  columns:
+  - name: revenue_month
+    tests:
+    - not_null
+  - name: currency
+    tests:
+    - relationships:
+        arguments:
+          to: ref('currency_decimals')
+          field: currency
