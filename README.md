@@ -27,20 +27,44 @@ If it changes, all customer keys change, so rebuild everything with the new salt
 
 ## Run
 
-From the repo root, run these in order:
+From the repo root, one command does everything:
 
 ```bash
-scripts/run_extract.sh                               # 1. pull today's Stripe data into data/raw/
-uv run python -m stripe_pipeline.seed --count 5      # 2. optional, once: add test customers with emails
-scripts/run_extract.sh                               # 3. re-pull, so the seed customers are included
-uv run python -m stripe_pipeline.load                # 4. load raw files into DuckDB, build customer_keys
-uv run python -m stripe_pipeline.flatten_items       # 5. subscription items to Parquet
-DBT_PROFILES_DIR=. uv run dbt build                  # 6. staging, marts, and tests
+scripts/quickstart.sh
 ```
 
-Step 5 accepts `--dt YYYY-MM-DD` to choose a run. Without it, the newest run is used.
+It checks the setup, then runs these steps in order, and prints row counts at the end:
+
+1. `seed`: adds test customers with emails. It skips any that already exist, so it is safe to rerun.
+2. `run_extract.sh`: pulls today's Stripe test data into `data/raw/`.
+3. `load`: loads the raw files into DuckDB and builds `customer_keys`.
+4. `flatten_items`: writes subscription items to Parquet.
+5. `dbt build`: builds the staging views, the marts, and the tests.
 
 A successful `dbt build` ends with `Done. PASS=40 WARN=0 ERROR=0`.
+
+To run a single step, use the commands directly, for example `uv run python -m stripe_pipeline.load`.
+`flatten_items` also accepts `--dt YYYY-MM-DD` to choose a run. Without it, the newest run is used.
+
+### Expected counts (test account)
+
+The counts depend on what is in your Stripe test account. For the test account used to build
+this pipeline, `scripts/quickstart.sh` prints:
+
+| Table | Rows |
+|---|---|
+| raw_customers | 9 |
+| raw_products, raw_prices, raw_subscriptions, raw_invoices, raw_charges | 3 each |
+| customer_keys | 6 (customers with an email) |
+| subscription_items (Parquet) | 3 |
+| fct_subscription_items | 3 |
+| mart_mrr | 1 row (USD, 4,500 minor units = 45.00) |
+| mart_active_subscriptions_by_plan | 3 |
+| mart_revenue_by_month | 1 |
+| mart_cancellations_by_month | 0 |
+
+If your account has different data, the counts will differ. They should still agree with each
+other: for example, `subscription_items` equals the number of items in the raw subscriptions file.
 
 To check paging, run the paging check and compare line counts. The two numbers should match:
 
@@ -85,6 +109,7 @@ or open `data/warehouse/warehouse.duckdb` with any DuckDB client.
 ## Repository layout
 
 ```
+scripts/quickstart.sh         one command: checks setup, runs every step, prints counts
 scripts/run_extract.sh        pulls raw Stripe data with the job file
 job.yaml                      apiframework job: endpoints, pagination, output paths
 checks/paging_check.yaml      checks that paging gives the same results at two page sizes
@@ -93,6 +118,7 @@ src/stripe_pipeline/
   seed.py                     creates test customers with emails
   load.py                     raw files to DuckDB, builds customer_keys (HMAC)
   flatten_items.py            subscription items to Parquet (PySpark)
+  summary.py                  row counts for raw, Parquet, and marts
 models/sources.yml            raw tables the staging models read
 models/staging/               stg_* models: allowlisted fields, types, customer_key
 models/marts/                 fact and mart models
