@@ -1,0 +1,90 @@
+version: 2
+models:
+- name: stg_customers
+  columns:
+  - name: customer_id
+    tests:
+    - unique
+    - not_null
+- name: stg_products
+  columns:
+  - name: product_id
+    tests:
+    - unique
+    - not_null
+- name: stg_prices
+  columns:
+  - name: price_id
+    tests:
+    - unique
+    - not_null
+  - name: product_id
+    tests:
+    - relationships:
+        arguments:
+          to: ref('stg_products')
+          field: product_id
+  - name: billing_interval
+    tests:
+    - accepted_values:
+        arguments:
+          values:
+          - month
+          - year
+        config:
+          where: billing_interval is not null
+- name: stg_subscriptions
+  columns:
+  - name: subscription_id
+    tests:
+    - unique
+    - not_null
+  - name: customer_id
+    tests:
+    - relationships:
+        arguments:
+          to: ref('stg_customers')
+          field: customer_id
+  - name: status
+    tests:
+    - accepted_values:
+        arguments:
+          values:
+          - incomplete
+          - incomplete_expired
+          - trialing
+          - active
+          - past_due
+          - canceled
+          - unpaid
+          - paused
+- name: stg_invoices
+  columns:
+  - name: invoice_id
+    tests:
+    - unique
+    - not_null
+  - name: currency
+    tests:
+    - relationships:
+        arguments:
+          to: ref('currency_decimals')
+          field: currency
+- name: stg_subscription_items
+  columns:
+  - name: item_id
+    tests:
+    - unique
+    - not_null
+  - name: subscription_id
+    tests:
+    - relationships:
+        arguments:
+          to: ref('stg_subscriptions')
+          field: subscription_id
+  - name: price_id
+    tests:
+    - relationships:
+        arguments:
+          to: ref('stg_prices')
+          field: price_id

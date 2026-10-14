@@ -1,8 +1,8 @@
-# Example job file for Stripe test mode. Needs a test-mode key in STRIPE_TEST_KEY
+# Job file for Stripe test mode. Needs a test-mode key in STRIPE_TEST_KEY
 # (sk_test_... or a read-only rk_test_... key). Never put the key in this file.
-# Run it with:
-#   uv run apiframework run examples/stripe-job.yaml
-# Writes one JSON line per record into out/<job>.jsonl, relative to where you run it.
+# Run it through scripts/run_extract.sh, which fills in the run date.
+# Writes one JSON line per record into data/raw/<endpoint>/dt=<run date>/.
+# __DT__ is replaced with the run date by scripts/run_extract.sh.
 apis:
   stripe:
     base_url: https://api.stripe.com/v1
@@ -45,24 +45,24 @@ jobs:
   customers:
     api: stripe
     endpoint: customers
-    output: out/customers.jsonl
+    output: data/raw/customers/dt=__DT__/customers.jsonl
   products:
     api: stripe
     endpoint: products
-    output: out/products.jsonl
+    output: data/raw/products/dt=__DT__/products.jsonl
   prices:
     api: stripe
     endpoint: prices
-    output: out/prices.jsonl
+    output: data/raw/prices/dt=__DT__/prices.jsonl
   subscriptions:
     api: stripe
     endpoint: subscriptions
-    output: out/subscriptions.jsonl
+    output: data/raw/subscriptions/dt=__DT__/subscriptions.jsonl
   invoices:
     api: stripe
     endpoint: invoices
-    output: out/invoices.jsonl
+    output: data/raw/invoices/dt=__DT__/invoices.jsonl
   charges:
     api: stripe
     endpoint: charges
-    output: out/charges.jsonl
+    output: data/raw/charges/dt=__DT__/charges.jsonl

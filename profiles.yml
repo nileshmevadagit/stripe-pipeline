@@ -1,0 +1,10 @@
+# dbt connection to the local DuckDB warehouse. No secrets here.
+# Run from the repo root with: DBT_PROFILES_DIR=. uv run dbt build
+stripe_pipeline:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: data/warehouse/warehouse.duckdb
+      schema: main
+      threads: 1

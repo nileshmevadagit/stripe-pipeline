@@ -1,0 +1,14 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Tables written by stripe_pipeline.load. Payloads hold whole Stripe objects as text.
+    schema: main
+    tables:
+      - name: raw_customers
+      - name: raw_products
+      - name: raw_prices
+      - name: raw_subscriptions
+      - name: raw_invoices
+      - name: customer_keys
+        description: HMAC customer_key per customer id. Built by stripe_pipeline.load from PSEUDONYM_SALT.

@@ -1,4 +1,13 @@
-out/
+data/
 .env
 __pycache__/
 .venv/
+target/
+logs/
+dbt_packages/
+# dbt per-user id file
+.user.yml
+# Word lock file while design.docx is open
+design_doc/~$*
+# macOS folder metadata
+.DS_Store

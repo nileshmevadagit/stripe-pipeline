@@ -1,0 +1,31 @@
+# Paging check: pull subscriptions with a small page size, then with the default page size.
+# Both files should have the same number of lines. Run from the repo root:
+#   uv run apiframework run checks/paging_check.yaml
+# Then compare: wc -l data/paging/*.jsonl
+apis:
+  stripe:
+    base_url: https://api.stripe.com/v1
+    auth:
+      type: bearer
+      token: ${STRIPE_TEST_KEY}
+    endpoints:
+      subscriptions_small_pages:
+        method: GET
+        path: /subscriptions
+        params: {limit: 2, status: all}
+        pagination: {type: has_more, items_path: data}
+      subscriptions_default_pages:
+        method: GET
+        path: /subscriptions
+        params: {limit: 100, status: all}
+        pagination: {type: has_more, items_path: data}
+
+jobs:
+  small_pages:
+    api: stripe
+    endpoint: subscriptions_small_pages
+    output: data/paging/small_pages.jsonl
+  default_pages:
+    api: stripe
+    endpoint: subscriptions_default_pages
+    output: data/paging/default_pages.jsonl
