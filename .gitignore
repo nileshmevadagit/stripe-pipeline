@@ -13,3 +13,5 @@ design_doc/~$*
 .DS_Store
 # Dagster temporary home created by dagster definitions validate
 .tmp_dagster_home_*/
+# Extract checkpoints are local state until the GitHub workflow owns them (V2 step 4)
+state/
