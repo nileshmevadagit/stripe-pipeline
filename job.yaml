@@ -1,0 +1,68 @@
+# Example job file for Stripe test mode. Needs a test-mode key in STRIPE_TEST_KEY
+# (sk_test_... or a read-only rk_test_... key). Never put the key in this file.
+# Run it with:
+#   uv run apiframework run examples/stripe-job.yaml
+# Writes one JSON line per record into out/<job>.jsonl, relative to where you run it.
+apis:
+  stripe:
+    base_url: https://api.stripe.com/v1
+    auth:
+      type: bearer
+      token: ${STRIPE_TEST_KEY}
+    endpoints:
+      customers:
+        method: GET
+        path: /customers
+        params: {limit: 100}
+        pagination: {type: has_more, items_path: data}
+      products:
+        method: GET
+        path: /products
+        params: {limit: 100}
+        pagination: {type: has_more, items_path: data}
+      prices:
+        method: GET
+        path: /prices
+        params: {limit: 100}
+        pagination: {type: has_more, items_path: data}
+      subscriptions:
+        method: GET
+        path: /subscriptions
+        params: {limit: 100, status: all}
+        pagination: {type: has_more, items_path: data}
+      invoices:
+        method: GET
+        path: /invoices
+        params: {limit: 100}
+        pagination: {type: has_more, items_path: data}
+      charges:
+        method: GET
+        path: /charges
+        params: {limit: 100}
+        pagination: {type: has_more, items_path: data}
+
+jobs:
+  customers:
+    api: stripe
+    endpoint: customers
+    output: out/customers.jsonl
+  products:
+    api: stripe
+    endpoint: products
+    output: out/products.jsonl
+  prices:
+    api: stripe
+    endpoint: prices
+    output: out/prices.jsonl
+  subscriptions:
+    api: stripe
+    endpoint: subscriptions
+    output: out/subscriptions.jsonl
+  invoices:
+    api: stripe
+    endpoint: invoices
+    output: out/invoices.jsonl
+  charges:
+    api: stripe
+    endpoint: charges
+    output: out/charges.jsonl
