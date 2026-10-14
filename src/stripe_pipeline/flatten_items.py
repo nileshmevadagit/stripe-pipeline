@@ -1,11 +1,14 @@
 """Flatten embedded subscription items into Parquet.
 
-Reads data/raw/subscriptions/dt=<date>/subscriptions.jsonl, takes the items each
-subscription carries, and writes one row per item to
-data/silver/subscription_items/dt=<date>/.
+The source is the full subscription list in the warehouse (raw_subscriptions), not just the
+run's raw file. An incremental run only fetches changed subscriptions, so one day's file is
+incomplete. Each run date's output is therefore a complete snapshot of subscription items.
 
-If any subscription id appears more than once, or any subscription has more items than
-were embedded (items.has_more), the script stops before writing anything.
+Checks, before anything is written:
+- no run file in the date folder may repeat a subscription id (it lists each id and its count);
+- no subscription may have items.has_more set (its item list was cut short).
+
+Writes one row per item to data/silver/subscription_items/dt=<date>/.
 
 Run from the repo root: uv run python -m stripe_pipeline.flatten_items
 With no --dt, it uses the newest raw run folder.
@@ -13,10 +16,13 @@ With no --dt, it uses the newest raw run folder.
 
 import argparse
 
+import duckdb
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
-from stripe_pipeline.config import RAW_ROOT, SILVER_ROOT
+from stripe_pipeline.config import RAW_ROOT, SILVER_ROOT, WAREHOUSE, WORK_ROOT
+
+SNAPSHOT = WORK_ROOT / "subscriptions_snapshot.jsonl"
 
 
 def newest_run_date() -> str:
@@ -26,14 +32,33 @@ def newest_run_date() -> str:
     return folders[-1].name.removeprefix("dt=")
 
 
-def flatten(spark: SparkSession, dt: str) -> None:
-    subs = spark.read.json(str(RAW_ROOT / "subscriptions" / f"dt={dt}" / "subscriptions.jsonl"))
+def write_snapshot() -> None:
+    """Write every subscription in the warehouse to one JSON Lines file for Spark."""
+    WORK_ROOT.mkdir(parents=True, exist_ok=True)
+    con = duckdb.connect(str(WAREHOUSE), read_only=True)
+    try:
+        rows = con.execute("SELECT payload FROM raw_subscriptions").fetchall()
+    finally:
+        con.close()
+    SNAPSHOT.write_text("".join(payload + "\n" for (payload,) in rows), encoding="utf-8")
 
-    duplicates = subs.groupBy("id").count().filter(F.col("count") > 1).orderBy("id").collect()
-    if duplicates:
-        for row in duplicates:
-            print(f"duplicate id {row['id']}: {row['count']} copies")
-        raise SystemExit(f"{len(duplicates)} duplicate subscription ids in this run. Nothing written.")
+
+def check_no_duplicates(spark: SparkSession, dt: str) -> None:
+    """Each run's file must not repeat an id. Runs on the same day can overlap, so files are checked one by one."""
+    for day_file in sorted((RAW_ROOT / "subscriptions" / f"dt={dt}").glob("subscriptions*.jsonl")):
+        run = spark.read.json(str(day_file))
+        duplicates = run.groupBy("id").count().filter(F.col("count") > 1).orderBy("id").collect()
+        if duplicates:
+            for row in duplicates:
+                print(f"duplicate id {row['id']} in {day_file.name}: {row['count']} copies")
+            raise SystemExit(f"{len(duplicates)} duplicate subscription ids in {day_file.name}. Nothing written.")
+
+
+def flatten(spark: SparkSession, dt: str) -> None:
+    check_no_duplicates(spark, dt)
+
+    write_snapshot()
+    subs = spark.read.json(str(SNAPSHOT))
 
     incomplete = subs.filter(F.col("items.has_more") == True).select("id").collect()  # noqa: E712
     if incomplete:
@@ -57,7 +82,7 @@ def flatten(spark: SparkSession, dt: str) -> None:
 
     out = SILVER_ROOT / "subscription_items" / f"dt={dt}"
     items.write.mode("overwrite").parquet(str(out))
-    print(f"subscriptions read: {subs.count()}, items written: {items.count()} to {out}")
+    print(f"subscriptions in snapshot: {subs.count()}, items written: {items.count()} to {out}")
 
 
 def flatten_partition(dt: str) -> None:

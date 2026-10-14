@@ -40,6 +40,12 @@ def build_customer_keys(con: duckdb.DuckDBPyConnection) -> int:
     return len(rows)
 
 
+def _run_order(path: Path) -> tuple[str, str]:
+    """Sort key: run date, then run stamp. Files without a stamp (older runs) sort first."""
+    stamp = path.name.removesuffix(".jsonl").partition(".")[2]
+    return (path.parent.name, stamp)
+
+
 def load_endpoint(con: duckdb.DuckDBPyConnection, endpoint: str) -> int:
     table = f"raw_{endpoint}"
     con.execute(
@@ -53,7 +59,7 @@ def load_endpoint(con: duckdb.DuckDBPyConnection, endpoint: str) -> int:
         """
     )
     newest: dict[str, tuple[str, str, str]] = {}
-    for path in sorted(RAW_ROOT.glob(f"{endpoint}/dt=*/{endpoint}.jsonl")):
+    for path in sorted(RAW_ROOT.glob(f"{endpoint}/dt=*/{endpoint}*.jsonl"), key=_run_order):
         dt = path.parent.name.removeprefix("dt=")
         for line in path.read_text(encoding="utf-8").splitlines():
             if not line.strip():

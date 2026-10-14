@@ -117,8 +117,11 @@ or open `data/warehouse/warehouse.duckdb` with any DuckDB client.
 
 ## Things to know
 
-- **Reruns on the same day overwrite that day's raw files.** Earlier days are never touched.
+- **Each run adds its own file** to the date's folder, so nothing is overwritten. Earlier days are never touched.
   Loading is safe to repeat, because rows are upserted by `id`.
+- **Extracts are incremental** after the first run. Each run asks Stripe only for records changed since the last
+  checkpoint in `state/checkpoints.json`, minus a one-day overlap. The first run, a run with `--full`, and every
+  Sunday (UTC) pull everything. To pull everything now, run `scripts/run_extract.sh --full`.
 - **The flatten step stops rather than writing partial output.** It stops, with nothing written, if:
   - a subscription id appears more than once in the run (it lists each id and its count), or
   - a subscription has `items.has_more` set, meaning its item list was cut short.
