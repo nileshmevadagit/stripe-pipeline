@@ -10,17 +10,42 @@ to this one, at `../API_framework`.
 ## Prerequisites
 
 - Python 3.10 or later, and [uv](https://docs.astral.sh/uv/)
-- Java 21 (PySpark runs on it; Java 25 also works locally)
+- A Java runtime (JDK), which PySpark needs. Install one yourself. The pipeline was tested with
+  Java 21 and Java 25. Check that `java -version` works in your terminal.
 - A Stripe **test-mode** secret key, `sk_test_...` (or a read-only `rk_test_...`)
 
 ## Setup
 
-Set these in your terminal for each session. Never write them into a file.
+Two values are needed: `STRIPE_TEST_KEY` (your Stripe test key) and `PSEUDONYM_SALT` (a secret used to
+build `customer_key`). Keep them out of the repo. Choose one of these ways to provide them:
+
+**Option 1: a secrets file outside the repo (recommended on your own machine).**
+
+```bash
+mkdir -p ~/.config/stripe-pipeline && chmod 700 ~/.config/stripe-pipeline
+touch ~/.config/stripe-pipeline/secrets.env && chmod 600 ~/.config/stripe-pipeline/secrets.env
+open -e ~/.config/stripe-pipeline/secrets.env   # paste these two lines into the file, then save
+```
+
+```
+STRIPE_TEST_KEY=sk_test_...
+PSEUDONYM_SALT=<output of: openssl rand -hex 32>
+```
+
+Use an editor, not `cat >`, so the key does not end up in your shell history. `quickstart.sh`
+reads this file. It refuses to read the file unless only your user can read it, and it reads only
+these two variables. To use another path, set `STRIPE_PIPELINE_SECRETS` to that path.
+
+**Option 2: export them in each terminal session.** Use this if you run the steps one by one.
+`scripts/quickstart.sh` does not need it when Option 1 is in place.
 
 ```bash
 export STRIPE_TEST_KEY=sk_test_...
-export PSEUDONYM_SALT=$(openssl rand -hex 32)   # first time only; keep the same value afterwards
+export PSEUDONYM_SALT=$(openssl rand -hex 32)   # first time only
 ```
+
+For individual steps with Option 1, load the file into your shell first:
+`set -a; source ~/.config/stripe-pipeline/secrets.env; set +a`.
 
 `PSEUDONYM_SALT` turns emails into `customer_key` values. Keep the same salt for every run.
 If it changes, all customer keys change, so rebuild everything with the new salt.
