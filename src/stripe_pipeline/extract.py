@@ -24,6 +24,7 @@ from stripe_pipeline.config import (
     JOB_FILE,
     OVERLAP_SECONDS,
     STATE_ROOT,
+    WAREHOUSE,
     WORK_ROOT,
 )
 
@@ -76,6 +77,8 @@ def run_extract(dt: str, full: bool = False) -> dict[str, str]:
     now = int(time.time())
     stamp = datetime.fromtimestamp(now, timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     checkpoints = load_checkpoints()
+    # Without a warehouse there is nothing to append to, so rebuild it from Stripe in full.
+    full = full or not WAREHOUSE.exists()
     created_gte = plan(list(_endpoint_names()), checkpoints, now, full)
     run_file = build_run_job(dt, created_gte, stamp)
     subprocess.run([sys.executable, "-m", "apiframework", "run", str(run_file)], check=True)
@@ -94,6 +97,8 @@ def main() -> None:
     parser.add_argument("--dt", required=True, help="run date for the output folder, as YYYY-MM-DD")
     parser.add_argument("--full", action="store_true", help="pull everything, even on an incremental day")
     args = parser.parse_args()
+    if not WAREHOUSE.exists():
+        print(f"warehouse not found at {WAREHOUSE}: pulling everything to rebuild it")
     modes = run_extract(args.dt, full=args.full)
     for name, mode in modes.items():
         print(f"{name}: {mode}")
