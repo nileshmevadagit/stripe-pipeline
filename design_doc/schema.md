@@ -18,6 +18,10 @@ erDiagram
     stg_products ||--o{ stg_prices : "product_id"
     stg_subscription_items ||--|| fct_subscription_items : "item_id"
     stg_subscriptions ||--o{ fct_subscription_items : "subscription_id"
+    fct_subscription_items ||..o{ mart_mrr : "aggregated into"
+    fct_subscription_items ||..o{ mart_active_subscriptions_by_plan : "aggregated into"
+    stg_invoices ||..o{ mart_revenue_by_month : "aggregated into"
+    stg_subscriptions ||..o{ mart_cancellations_by_month : "aggregated into"
 
     stg_customers {
         varchar customer_id PK
@@ -71,6 +75,32 @@ erDiagram
         bigint amount_paid "smallest unit"
         timestamp created_at "UTC"
         timestamp paid_at "UTC"
+    }
+    mart_mrr {
+        varchar currency PK
+        decimal mrr_minor "smallest unit"
+        double mrr_major "whole units"
+        integer decimal_places
+        bigint active_subscriptions
+    }
+    mart_active_subscriptions_by_plan {
+        varchar product_id
+        varchar price_id
+        varchar currency
+        varchar billing_interval
+        bigint active_subscriptions
+    }
+    mart_revenue_by_month {
+        date revenue_month PK
+        varchar currency PK
+        hugeint paid_minor "smallest unit"
+        integer decimal_places
+        double paid_major "whole units"
+    }
+    mart_cancellations_by_month {
+        date cancel_month PK
+        varchar currency PK
+        bigint cancellations
     }
     fct_subscription_items {
         varchar item_id PK

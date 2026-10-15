@@ -12,6 +12,9 @@ models:
         arguments: {}
         config:
           where: billing_interval in ('month', 'year')
+  - name: customer_id
+    meta:
+      pii: true
 - name: mart_mrr
   columns:
   - name: currency

@@ -6,6 +6,16 @@ models:
     tests:
     - unique
     - not_null
+    meta:
+      pii: true
+  - name: customer_key
+    meta:
+      pii: true
+    description: HMAC of the email. Pseudonymous, so still personal data.
+  - name: country
+    meta:
+      pii: true
+    description: Quasi-identifier. Kept for analysis.
 - name: stg_products
   columns:
   - name: product_id
@@ -45,6 +55,8 @@ models:
         arguments:
           to: ref('stg_customers')
           field: customer_id
+    meta:
+      pii: true
   - name: status
     tests:
     - accepted_values:
@@ -70,6 +82,9 @@ models:
         arguments:
           to: ref('currency_decimals')
           field: currency
+  - name: customer_id
+    meta:
+      pii: true
 - name: stg_subscription_items
   columns:
   - name: item_id
