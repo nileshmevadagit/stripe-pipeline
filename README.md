@@ -133,6 +133,31 @@ or open `data/warehouse/warehouse.duckdb` with any DuckDB client.
   after each scheduled run, but only when the repository is public (Pages is not available for private repos on a free plan).
   To turn it on: make the repo public, then under **Settings → Pages** set the source to **GitHub Actions**.
 
+## Viewing the layers
+
+The pipeline has three layers: bronze (raw), silver (cleaned), and gold (business tables). Run these
+from the repo root after the pipeline has run. Each command prints the first few rows.
+
+```bash
+# Bronze: the raw file for one run, one Stripe object per line
+head -c 400 "$(ls data/raw/subscriptions/dt=*/subscriptions*.jsonl | head -1)"
+
+# Bronze in the warehouse: raw tables, with personal fields masked
+uv run python -c "import duckdb; duckdb.connect('data/warehouse/warehouse.duckdb', read_only=True).sql('select id, _dt from raw_subscriptions limit 5').show()"
+
+# Silver: cleaned staging view
+uv run python -c "import duckdb; duckdb.connect('data/warehouse/warehouse.duckdb', read_only=True).sql('select subscription_id, status, currency from stg_subscriptions limit 5').show()"
+
+# Silver: subscription items as Parquet (one folder per run date)
+uv run python -c "import duckdb; duckdb.sql(\"select * from 'data/silver/subscription_items/*/*.parquet' limit 5\").show()"
+
+# Gold: MRR mart
+uv run python -c "import duckdb; duckdb.connect('data/warehouse/warehouse.duckdb', read_only=True).sql('select * from mart_mrr').show()"
+
+# Gold, public: the dashboard page (open in a browser)
+open data/site/index.html
+```
+
 ## Things to know
 
 - **Each run adds its own file** to the date's folder, so nothing is overwritten. Earlier days are never touched.
