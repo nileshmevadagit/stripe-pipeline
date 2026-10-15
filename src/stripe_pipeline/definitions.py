@@ -62,3 +62,19 @@ defs = dg.Definitions(
     assets=[stripe_raw, warehouse_raw, subscription_items, marts],
     jobs=[pipeline_job],
 )
+
+
+def run_for_date(dt: str) -> bool:
+    """Run the whole pipeline job for one UTC run date. Returns True when every step succeeded."""
+    result = defs.get_job_def("pipeline").execute_in_process(partition_key=dt)
+    return result.success
+
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser(description="Run the pipeline job for one UTC run date.")
+    parser.add_argument("--dt", required=True, help="run date, as YYYY-MM-DD")
+    args = parser.parse_args()
+    sys.exit(0 if run_for_date(args.dt) else 1)

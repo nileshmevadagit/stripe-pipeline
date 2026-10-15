@@ -1,0 +1,131 @@
+# Daily pipeline run. Processes yesterday's UTC date, because today's date is not complete yet.
+#
+# Order of safety:
+# 1. The run restores the warehouse from the last successful run. If none is available, it rebuilds from Stripe.
+# 2. The warehouse and checkpoint are uploaded only after every step succeeds.
+# 3. The checkpoint is committed last, so it never moves ahead of the warehouse it belongs to.
+name: pipeline
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      run_date:
+        description: "UTC run date (YYYY-MM-DD). Leave empty for yesterday."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pipeline
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    environment: stripe-test
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out this repo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # The pipeline installs apiframework from ../API_framework, so CI checks it out next to this repo.
+      - name: Check out apiframework next to this repo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: nileshmevadagit/API_framework
+          token: ${{ secrets.APIFRAMEWORK_TOKEN }}
+          path: ../API_framework
+
+      - name: Set up Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Work out the run date
+        id: date
+        env:
+          INPUT_DATE: ${{ inputs.run_date }}
+        run: |
+          if [ -n "${INPUT_DATE}" ]; then
+            DT="${INPUT_DATE}"
+          else
+            DT="$(date -u -d yesterday +%F)"
+          fi
+          echo "dt=${DT}" >> "$GITHUB_OUTPUT"
+          echo "run date: ${DT}"
+
+      - name: Restore warehouse from the last successful run
+        run: |
+          mkdir -p data/warehouse
+          RUN_ID="$(gh run list --workflow pipeline.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+          if [ -n "${RUN_ID}" ] && gh run download "${RUN_ID}" --name warehouse --dir data/warehouse; then
+            echo "restored warehouse from run ${RUN_ID}"
+          else
+            echo "no usable warehouse artifact: the extract will rebuild it from Stripe"
+          fi
+
+      - name: Run the pipeline job
+        env:
+          STRIPE_TEST_KEY: ${{ secrets.STRIPE_TEST_KEY }}
+          PSEUDONYM_SALT: ${{ secrets.PSEUDONYM_SALT }}
+        run: uv run python -m stripe_pipeline.definitions --dt "${{ steps.date.outputs.dt }}"
+
+      - name: Upload warehouse for the next run
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: warehouse
+          path: data/warehouse/warehouse.duckdb
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload checkpoint for the commit job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: checkpoint
+          path: state/checkpoints.json
+          retention-days: 7
+          if-no-files-found: error
+
+  commit-checkpoint:
+    needs: run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out this repo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Download checkpoint
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: checkpoint
+          path: state
+
+      - name: Commit checkpoint
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # state/ is git-ignored locally, so the file is added with -f on purpose.
+          git add -f state/checkpoints.json
+          if git diff --cached --quiet; then
+            echo "checkpoint unchanged"
+            exit 0
+          fi
+          git commit -m "chore: update extract checkpoint [skip ci]"
+          git push
