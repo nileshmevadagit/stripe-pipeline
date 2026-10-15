@@ -1,3 +1,4 @@
+{{ config(materialized='table', tags=['public']) }}
 -- Active subscriptions per product and price, per currency.
 select
     product_id,

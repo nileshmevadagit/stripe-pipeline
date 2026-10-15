@@ -1,3 +1,4 @@
+{{ config(materialized='table', tags=['public']) }}
 -- Subscriptions cancelled, by UTC month of cancellation, per currency.
 select
     cast(date_trunc('month', canceled_at) as date) as cancel_month,

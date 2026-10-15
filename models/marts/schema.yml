@@ -18,6 +18,10 @@ models:
     tests:
     - unique
     - not_null
+    - relationships:
+        arguments:
+          to: ref('currency_decimals')
+          field: currency
 - name: mart_active_subscriptions_by_plan
   columns:
   - name: price_id

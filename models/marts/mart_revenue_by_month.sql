@@ -1,3 +1,4 @@
+{{ config(materialized='table', tags=['public']) }}
 -- Paid revenue by UTC month of payment, per currency.
 -- Amounts are in smallest units, and paid_major is the same amount in whole currency units.
 select

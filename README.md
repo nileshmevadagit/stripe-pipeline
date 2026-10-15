@@ -115,6 +115,24 @@ uv run python -c "import duckdb; print(duckdb.connect('data/warehouse/warehouse.
 
 or open `data/warehouse/warehouse.duckdb` with any DuckDB client.
 
+## Dashboard
+
+`scripts/quickstart.sh` builds a public dashboard as its last step. The page is one HTML file,
+`data/site/index.html`, with inline charts and no scripts or external files.
+
+- **Source:** only the marts tagged `public` (MRR, active subscriptions by plan, revenue by month,
+  cancellations). They are copied into `data/public/public.duckdb`, and the page reads that file only.
+- **Privacy:** the page has aggregates only. A dbt test (`tests/public_models_have_no_pii.sql`) fails
+  the build if a public model contains a personal column, including one added without a tag.
+- **Rebuild only the page** after `dbt build`:
+  ```bash
+  uv run python -m stripe_pipeline.public_export
+  uv run python -m stripe_pipeline.build_site
+  ```
+- **View it:** open `data/site/index.html` in a browser. The workflow also publishes the page to GitHub Pages
+  after each scheduled run, but only when the repository is public (Pages is not available for private repos on a free plan).
+  To turn it on: make the repo public, then under **Settings → Pages** set the source to **GitHub Actions**.
+
 ## Things to know
 
 - **Each run adds its own file** to the date's folder, so nothing is overwritten. Earlier days are never touched.
@@ -129,8 +147,10 @@ or open `data/warehouse/warehouse.duckdb` with any DuckDB client.
 - **Money is never converted between currencies.** Amounts are integers in the currency's smallest
   unit. `seeds/currency_decimals.csv` gives each currency's decimal places, which is used only for display.
 - **MRR** counts `active` and `trialing` subscriptions. Yearly prices are divided by 12.
-- **Personal data** is removed in staging. Names, emails, phone numbers, and address lines
-  stay in `data/raw/` and the warehouse, never in the marts. Keep `data/` private.
+- **Personal data** is masked before the warehouse is saved: names and phone numbers are masked,
+  address lines are removed (only the country stays), and emails are replaced by `customer_key`.
+  This is a weaker protection than keyed hashing, and it is acceptable only for test data. The raw files in
+  `data/raw/` still hold the original values, so keep `data/` private.
 - **Not yet:** charges are loaded but not staged, because no mart uses them. Scheduling
   (Dagster and GitHub Actions), the dashboard, and the Databricks demo are later versions.
 
@@ -147,12 +167,16 @@ src/stripe_pipeline/
   load.py                     raw files to DuckDB, builds customer_keys (HMAC)
   flatten_items.py            subscription items to Parquet (PySpark)
   summary.py                  row counts for raw, Parquet, and marts
+  public_export.py              copies public marts into data/public/public.duckdb
+  build_site.py               builds the static dashboard page into data/site/
+  extract.py                  full or incremental extract, with checkpoints
+  definitions.py              Dagster assets and the pipeline job
 models/sources.yml            raw tables the staging models read
 models/staging/               stg_* models: allowlisted fields, types, customer_key
 models/marts/                 fact and mart models
 macros/unix_to_utc.sql        Unix seconds to UTC timestamps
 seeds/currency_decimals.csv   decimal places per currency
-tests/                        custom dbt tests
+tests/                        custom dbt tests, including the public-model PII guard
 profiles.yml, dbt_project.yml dbt connection and project settings (no secrets)
 design_doc/                   design document and data-flow diagram
 ```

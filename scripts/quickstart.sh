@@ -28,20 +28,25 @@ command -v uv >/dev/null || fail "uv is not installed. See https://docs.astral.s
 command -v java >/dev/null || fail "Java is not installed. PySpark needs a JDK. See the Prerequisites section of the README."
 [[ -d ../API_framework ]] || fail "../API_framework was not found. Clone apiframework next to this repo."
 
-echo "== 1/5 seed test customers with emails (skips existing ones)"
+echo "== 1/6 seed test customers with emails (skips existing ones)"
 uv run python -m stripe_pipeline.seed --count 5
 
-echo "== 2/5 extract Stripe test data into data/raw/"
+echo "== 2/6 extract Stripe test data into data/raw/"
 scripts/run_extract.sh
 
-echo "== 3/5 load raw files into DuckDB and build customer_keys"
+echo "== 3/6 load raw files into DuckDB and build customer_keys"
 uv run python -m stripe_pipeline.load
 
-echo "== 4/5 flatten subscription items to Parquet"
+echo "== 4/6 flatten subscription items to Parquet"
 uv run python -m stripe_pipeline.flatten_items
 
-echo "== 5/5 build staging, marts, and tests"
+echo "== 5/6 build staging, marts, and tests"
 DBT_PROFILES_DIR=. uv run dbt build
+
+echo "== 6/6 export public marts and build the dashboard page"
+uv run python -m stripe_pipeline.public_export
+uv run python -m stripe_pipeline.build_site
 
 echo "== row counts"
 uv run python -m stripe_pipeline.summary
+echo "dashboard: open data/site/index.html in a browser"
