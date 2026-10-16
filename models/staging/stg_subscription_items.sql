@@ -8,7 +8,11 @@ with silver as (
         price_id,
         cast(quantity as bigint) as quantity,
         cast(dt as date) as dt
+    {%- if target.type == 'databricks' %}
+    from {{ source('silver', 'subscription_items') }}
+    {%- else %}
     from read_parquet('data/silver/subscription_items/*/*.parquet')
+    {%- endif %}
 )
 select *
 from silver

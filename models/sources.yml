@@ -3,7 +3,8 @@ version: 2
 sources:
   - name: raw
     description: Tables written by stripe_pipeline.load. Payloads hold whole Stripe objects as text.
-    schema: main
+    # DuckDB uses schema main. The Databricks demo passes --vars '{raw_schema: stripe_pipeline}'.
+    schema: "{{ var('raw_schema', 'main') }}"
     tables:
       - name: raw_customers
       - name: raw_products
@@ -12,3 +13,8 @@ sources:
       - name: raw_invoices
       - name: customer_keys
         description: HMAC customer_key per customer id. Built by stripe_pipeline.load from PSEUDONYM_SALT.
+  - name: silver
+    description: Databricks only. The flattened subscription items table written by the PySpark job.
+    schema: "{{ var('raw_schema', 'main') }}"
+    tables:
+      - name: subscription_items
