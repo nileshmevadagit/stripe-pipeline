@@ -41,3 +41,14 @@ models:
         arguments:
           to: ref('currency_decimals')
           field: currency
+- name: mart_revenue_by_day
+  columns:
+  - name: revenue_day
+    tests:
+    - not_null
+  - name: currency
+    tests:
+    - relationships:
+        arguments:
+          to: ref('currency_decimals')
+          field: currency
