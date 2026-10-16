@@ -46,6 +46,8 @@ def write_snapshot() -> None:
 def check_no_duplicates(spark: SparkSession, dt: str) -> None:
     """Each run's file must not repeat an id. Runs on the same day can overlap, so files are checked one by one."""
     for day_file in sorted((RAW_ROOT / "subscriptions" / f"dt={dt}").glob("subscriptions*.jsonl")):
+        if day_file.stat().st_size == 0:
+            continue  # an empty run file has no ids to check, and Spark cannot read its columns
         run = spark.read.json(str(day_file))
         duplicates = run.groupBy("id").count().filter(F.col("count") > 1).orderBy("id").collect()
         if duplicates:
