@@ -1,0 +1,30 @@
+# Daily test invoice for the dashboard. Runs half an hour before the pipeline (06:00 UTC), so the
+# pipeline's next incremental pull includes it. Test mode only: the script refuses any other key.
+name: test-invoice
+
+on:
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Shares the pipeline's group, so the two never write to Stripe or the repo at the same time.
+concurrency:
+  group: pipeline
+  cancel-in-progress: false
+
+jobs:
+  make-invoice:
+    runs-on: ubuntu-latest
+    environment: stripe-test
+    timeout-minutes: 5
+    steps:
+      - name: Check out this repo
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Create a paid test invoice
+        env:
+          STRIPE_TEST_KEY: ${{ secrets.STRIPE_TEST_KEY }}
+        run: python3 scripts/make_test_invoice.py
