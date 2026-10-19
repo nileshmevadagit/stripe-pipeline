@@ -15,6 +15,11 @@ on:
         description: "UTC run date (YYYY-MM-DD). Leave empty for yesterday."
         required: false
         default: ""
+      full_refresh:
+        description: "Pull all Stripe data, not only changes since the last checkpoint"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -91,6 +96,7 @@ jobs:
         env:
           STRIPE_TEST_KEY: ${{ secrets.STRIPE_TEST_KEY }}
           PSEUDONYM_SALT: ${{ secrets.PSEUDONYM_SALT }}
+          FULL_REFRESH: ${{ inputs.full_refresh && '1' || '0' }}
         run: uv run python -m stripe_pipeline.definitions --dt "${{ steps.date.outputs.dt }}"
 
       - name: Upload warehouse for the next run

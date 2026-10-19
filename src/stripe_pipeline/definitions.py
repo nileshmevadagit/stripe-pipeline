@@ -24,7 +24,8 @@ RETRY = dg.RetryPolicy(max_retries=3, delay=30)
 def stripe_raw(context: dg.AssetExecutionContext) -> None:
     """Pull Stripe test data for one run date, incrementally unless it is a full-refresh day."""
     dt = context.partition_key
-    modes = run_extract(dt)
+    # The manual workflow sets FULL_REFRESH=1 when its full_refresh box is ticked.
+    modes = run_extract(dt, full=os.environ.get("FULL_REFRESH") == "1")
     context.log.info(f"extracted run {dt}: {modes}")
 
 
