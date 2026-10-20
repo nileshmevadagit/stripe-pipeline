@@ -51,9 +51,11 @@ def main() -> None:
     customer = find_or_create_customer()
     call("POST", "/invoiceitems", {"customer": customer, "amount": AMOUNT, "currency": "usd", "description": DESCRIPTION})
     invoice = call("POST", "/invoices", {"customer": customer, "auto_advance": "false"})["id"]
-    call("POST", f"/invoices/{invoice}/finalize", {})
-    paid = call("POST", f"/invoices/{invoice}/pay", {})
-    print(paid["id"], paid["status"], paid["amount_paid"])
+    result = call("POST", f"/invoices/{invoice}/finalize", {})
+    # Finalizing charges the default card, so the invoice can already be paid. Paying it again fails.
+    if result["status"] != "paid":
+        result = call("POST", f"/invoices/{invoice}/pay", {})
+    print(result["id"], result["status"], result["amount_paid"])
 
 
 if __name__ == "__main__":
